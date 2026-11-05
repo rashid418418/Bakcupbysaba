@@ -55,6 +55,7 @@ onAuthStateChanged(auth, async user => {
     document.querySelectorAll(".owner-only").forEach(el=>el.classList.toggle("hidden",!isOwner()));
     $("paymentsTab").classList.toggle("hidden",!isOwner());
     $("teamTab").classList.toggle("hidden",!isOwner());
+    $("reportsTab").classList.toggle("hidden",!isOwner());
     await refreshData();
   } catch(err){ toast("Account setup error: "+err.message); }
 });
@@ -78,7 +79,7 @@ function render(){
   $("readyCount").textContent=allOrders.filter(o=>o.status==="Ready").length;
   $("dueAmount").textContent=money(allOrders.filter(o=>o.status!=="Cancelled").reduce((s,o)=>s+Math.max(0,Number(o.price||0)-Number(o.advance||0)),0));
   renderOrders();
-  if(isOwner()){ renderPayments(); renderTeam(); }
+  if(isOwner()){ renderPayments(); renderTeam(); renderReports(); }
 }
 function renderOrders(){
   const term=$("searchBox").value.toLowerCase();
@@ -96,6 +97,36 @@ function renderOrders(){
   document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openEdit(b.dataset.edit));
   document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>removeOrder(b.dataset.delete));
 }
+
+function orderCreatedDate(o){
+  const v=o.createdAt;
+  if(v?.toDate) return v.toDate();
+  if(v?.seconds) return new Date(v.seconds*1000);
+  if(typeof v==="string"||typeof v==="number") return new Date(v);
+  return null;
+}
+function renderReports(){
+  if(!isOwner()) return;
+  const status=$("reportStatus").value||"all", from=$("reportFrom").value, to=$("reportTo").value;
+  const start=from?new Date(from+"T00:00:00"):null, end=to?new Date(to+"T23:59:59.999"):null;
+  const filtered=allOrders.filter(o=>{
+    const d=orderCreatedDate(o); if(!d||Number.isNaN(d.getTime())) return false;
+    if(start&&d<start) return false; if(end&&d>end) return false;
+    if(status==="pending") return !["Delivered","Cancelled"].includes(o.status);
+    if(status==="fulfilled") return o.status==="Delivered";
+    if(status==="cancelled") return o.status==="Cancelled";
+    return true;
+  });
+  const sales=filtered.filter(o=>o.status!=="Cancelled");
+  const total=sales.reduce((n,o)=>n+Number(o.price||0),0), paid=sales.reduce((n,o)=>n+Number(o.advance||0),0);
+  $("reportSummary").innerHTML=`<div class="report-summary"><article class="stat"><span>Orders</span><strong>${filtered.length}</strong></article><article class="stat"><span>Order value</span><strong>${money(total)}</strong></article><article class="stat"><span>Advance received</span><strong>${money(paid)}</strong></article><article class="stat"><span>Balance</span><strong>${money(Math.max(0,total-paid))}</strong></article></div>`;
+  const months={}; filtered.forEach(o=>{const d=orderCreatedDate(o);const key=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");(months[key]??=[]).push(o);});
+  const keys=Object.keys(months).sort().reverse();
+  $("monthlyReportRows").innerHTML=keys.length?keys.map(k=>{const rows=months[k], valid=rows.filter(o=>o.status!=="Cancelled"), value=valid.reduce((n,o)=>n+Number(o.price||0),0), advance=valid.reduce((n,o)=>n+Number(o.advance||0),0);const [y,m]=k.split("-").map(Number);return `<tr><td>${new Date(y,m-1,1).toLocaleDateString("en-PK",{month:"long",year:"numeric"})}</td><td>${rows.length}</td><td>${money(value)}</td><td>${money(advance)}</td><td>${money(Math.max(0,value-advance))}</td></tr>`;}).join(""):'<tr><td colspan="5">No orders found for this report period.</td></tr>';
+}
+$("runReportBtn").addEventListener("click",renderReports);
+$("reportStatus").addEventListener("change",renderReports);
+
 function renderPayments(){
   const rows=allOrders.filter(o=>o.status!=="Cancelled");
   const total=rows.reduce((s,o)=>s+Number(o.price||0),0), paid=rows.reduce((s,o)=>s+Number(o.advance||0),0);
@@ -154,8 +185,8 @@ document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));
   activeOrderTab=["orders","pending","fulfilled","cancelled"].includes(b.dataset.tab)?b.dataset.tab:"orders";
   const ordersTab=["orders","pending","fulfilled","cancelled"].includes(b.dataset.tab);
-  $("ordersPanel").classList.toggle("hidden",!ordersTab); $("paymentsPanel").classList.toggle("hidden",b.dataset.tab!=="payments"); $("teamPanel").classList.toggle("hidden",b.dataset.tab!=="team");
-  if(ordersTab)renderOrders();
+  $("ordersPanel").classList.toggle("hidden",!ordersTab); $("paymentsPanel").classList.toggle("hidden",b.dataset.tab!=="payments"); $("teamPanel").classList.toggle("hidden",b.dataset.tab!=="team"); $("reportsPanel").classList.toggle("hidden",b.dataset.tab!=="reports");
+  if(ordersTab)renderOrders(); if(b.dataset.tab==="reports")renderReports();
 }));
 function checkReminders(){if(!currentUser||!allOrders.length||!("Notification" in window)||Notification.permission!=="granted")return;const now=Date.now();allOrders.filter(o=>o.status!=="Delivered"&&o.status!=="Cancelled"&&o.reminderAt&&!o.reminderSentAt&&new Date(o.reminderAt).getTime()<=now).forEach(async o=>{new Notification("Cake order reminder",{body:`${o.customer}: ${o.description||"Pending order"}`});try{await updateDoc(doc(db,"orders",o.id),{reminderSentAt:new Date().toISOString()});}catch(e){console.warn(e);}});}
 if("Notification" in window && Notification.permission==="default") { /* permission is requested when a reminder is first saved */ }

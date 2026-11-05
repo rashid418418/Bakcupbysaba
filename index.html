@@ -50,6 +50,7 @@
         <button class="tab" data-tab="pending">Pending</button>
         <button class="tab" data-tab="fulfilled">Fulfilled</button>
         <button class="tab" data-tab="cancelled">Cancelled</button>
+        <button class="tab" data-tab="reports" id="reportsTab">Reports</button>
         <button class="tab" data-tab="payments" id="paymentsTab">Payments</button>
         <button class="tab" data-tab="team" id="teamTab">Staff</button>
       </nav>
@@ -57,6 +58,19 @@
       <section id="ordersPanel" class="panel">
         <div class="panel-head"><div><h2>Orders</h2><p class="muted">Search and update your cake orders.</p></div><input id="searchBox" class="search" placeholder="Search customer or phone"></div>
         <div id="ordersList" class="orders-list"><div class="empty">Your orders will appear here.</div></div>
+      </section>
+
+      <section id="reportsPanel" class="panel hidden">
+        <div class="panel-head"><div><h2>Order reports</h2><p class="muted">Monthly performance and date-range reports.</p></div></div>
+        <div class="report-filters">
+          <label>Order status<select id="reportStatus"><option value="all">All orders</option><option value="pending">Pending</option><option value="fulfilled">Fulfilled / Delivered</option><option value="cancelled">Cancelled</option></select></label>
+          <label>From date<input id="reportFrom" type="date"></label>
+          <label>To date<input id="reportTo" type="date"></label>
+          <button class="primary" id="runReportBtn" type="button">Generate report</button>
+        </div>
+        <div id="reportSummary"></div>
+        <div class="report-table-wrap"><table class="report-table"><thead><tr><th>Month</th><th>Orders</th><th>Order value</th><th>Advance</th><th>Balance</th></tr></thead><tbody id="monthlyReportRows"></tbody></table></div>
+        <p class="hint">Reports are grouped by order creation date. Cancelled orders are shown in the order count but excluded from sales totals.</p>
       </section>
 
       <section id="paymentsPanel" class="panel hidden">
