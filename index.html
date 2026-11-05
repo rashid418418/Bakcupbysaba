@@ -46,7 +46,10 @@
       </section>
 
       <nav class="tabs">
-        <button class="tab active" data-tab="orders">Orders</button>
+        <button class="tab active" data-tab="orders">All Orders</button>
+        <button class="tab" data-tab="pending">Pending</button>
+        <button class="tab" data-tab="fulfilled">Fulfilled</button>
+        <button class="tab" data-tab="cancelled">Cancelled</button>
         <button class="tab" data-tab="payments" id="paymentsTab">Payments</button>
         <button class="tab" data-tab="team" id="teamTab">Staff</button>
       </nav>
@@ -84,6 +87,10 @@
         <label>Total price (Rs.) *<input id="price" type="number" min="0" step="1" required></label>
         <label>Advance received (Rs.)<input id="advance" type="number" min="0" step="1" value="0"></label>
         <label>Status<select id="status"><option>Pending</option><option>In Progress</option><option>Ready</option><option>Delivered</option><option>Cancelled</option></select></label>
+        <label>Reminder date &amp; time<input id="reminderAt" type="datetime-local"></label>
+        <label class="wide owner-only">Cancellation reason<select id="cancelReason"><option value="">Select if cancelled</option><option>Customer cancelled</option><option>Payment issue</option><option>Design change</option><option>Bakery unable to fulfil</option><option>Other</option></select></label>
+        <label class="owner-only">Refund amount (Rs.)<input id="refundAmount" type="number" min="0" step="1" value="0"></label>
+        <label class="owner-only">Refund status<select id="refundStatus"><option>Not applicable</option><option>Pending</option><option>Refunded</option><option>Non-refundable</option></select></label>
         <label class="wide">Customer notes<textarea id="customerNotes" rows="2" placeholder="Cake message, colour, design instructions"></textarea></label>
         <label class="wide owner-only">Private notes (owner only)<textarea id="privateNotes" rows="2" placeholder="Internal bakery notes"></textarea></label>
       </div>

@@ -19,7 +19,7 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 const $ = id => document.getElementById(id);
-let currentUser = null, currentProfile = null, allOrders = [], allUsers = [];
+let currentUser = null, currentProfile = null, allOrders = [], allUsers = [], activeOrderTab = "orders", reminderTimer = null;
 
 const money = n => "Rs. " + Number(n || 0).toLocaleString("en-PK");
 const isOwner = () => currentProfile?.role === "owner";
@@ -82,12 +82,12 @@ function render(){
 }
 function renderOrders(){
   const term=$("searchBox").value.toLowerCase();
-  const list=allOrders.filter(o=>(o.customer||"").toLowerCase().includes(term)||(o.phone||"").includes(term));
+  const list=allOrders.filter(o=>{const match=(o.customer||"").toLowerCase().includes(term)||(o.phone||"").includes(term); const tabMatch=activeOrderTab==="pending"?!["Delivered","Cancelled"].includes(o.status):activeOrderTab==="fulfilled"?o.status==="Delivered":activeOrderTab==="cancelled"?o.status==="Cancelled":true; return match&&tabMatch;});
   $("ordersList").innerHTML=list.length?list.map(o=>{
     const balance=Math.max(0,Number(o.price||0)-Number(o.advance||0));
     return `<article class="order-card">
       <div><h3>${esc(o.customer)} <span class="pill ${o.status==="Ready"?"ready":""}">${esc(o.status||"Pending")}</span></h3>
-      <p>${esc(o.description)} · ${esc(o.weight||"Weight not set")}</p><p>${esc(o.phone||"No phone")} · ${esc(o.deliveryText||"")}</p></div>
+      <p>${esc(o.description)} · ${esc(o.weight||"Weight not set")}</p><p>${esc(o.phone||"No phone")} · ${esc(o.deliveryText||"")}</p>${o.reminderAt?`<p>Reminder: ${esc(new Date(o.reminderAt).toLocaleString())}</p>`:""}${o.status==="Cancelled"?`<p>Reason: ${esc(o.cancelReason||"Not recorded")} · Refund: ${money(o.refundAmount)} (${esc(o.refundStatus||"Not set")})</p>`:""}</div>
       <div><p>Flavour(s)</p><strong>${esc(o.flavours||"Not specified")}</strong></div>
       ${isOwner()?`<div class="money">${money(o.price)}<p>Advance ${money(o.advance)} · Balance ${money(balance)}</p></div>`:`<div><p>Order type</p><strong>${esc(o.orderType||"Regular")}</strong></div>`}
       <div class="card-actions"><button class="small-btn" data-edit="${o.id}">Edit</button>${isOwner()?`<button class="small-btn" data-delete="${o.id}">Delete</button>`:""}</div>
@@ -113,7 +113,7 @@ function renderTeam(){
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function openNew(){
   $("orderForm").reset(); $("orderId").value=""; $("advance").value="0"; $("status").value="Pending";
-  $("privateNotes").value=""; $("dialogTitle").textContent="New cake order"; $("orderError").textContent="";
+  $("privateNotes").value=""; $("reminderAt").value=""; $("cancelReason").value=""; $("refundAmount").value="0"; $("refundStatus").value="Not applicable"; $("dialogTitle").textContent="New cake order"; $("orderError").textContent="";
   $("orderDialog").showModal();
 }
 function openEdit(id){
@@ -123,6 +123,7 @@ function openEdit(id){
   $("delivery").value=o.delivery||""; $("orderType").value=o.orderType||"Regular";
   $("price").value=o.price||0; $("advance").value=o.advance||0; $("status").value=o.status||"Pending";
   $("customerNotes").value=o.customerNotes||""; $("privateNotes").value=isOwner()?(o.privateNotes||""):"";
+  $("reminderAt").value=o.reminderAt||""; $("cancelReason").value=isOwner()?(o.cancelReason||""):""; $("refundAmount").value=isOwner()?(o.refundAmount||0):0; $("refundStatus").value=isOwner()?(o.refundStatus||"Not applicable"):"Not applicable";
   $("dialogTitle").textContent="Edit cake order"; $("orderError").textContent=""; $("orderDialog").showModal();
 }
 $("orderForm").addEventListener("submit",async e=>{
@@ -133,16 +134,17 @@ $("orderForm").addEventListener("submit",async e=>{
   const data={customer:$("customer").value.trim(),phone:$("phone").value.trim(),description:$("description").value.trim(),
     weight:$("weight").value.trim(),flavours:$("flavours").value.trim(),delivery:$("delivery").value,
     deliveryText:$("delivery").value?new Date($("delivery").value).toLocaleString():"",orderType:$("orderType").value,
-    status:$("status").value,customerNotes:$("customerNotes").value.trim(),updatedAt:serverTimestamp()};
+    status:$("status").value,customerNotes:$("customerNotes").value.trim(),reminderAt:$("reminderAt").value||"",updatedAt:serverTimestamp()};
   try{
     let orderId=id;
     if(id){await updateDoc(doc(db,"orders",id),data);}
     else{data.createdBy=currentUser.uid;data.createdAt=serverTimestamp();const created=await addDoc(collection(db,"orders"),data);orderId=created.id;}
     if(isOwner()){
+      if(data.status==="Cancelled"){data.cancelReason=$("cancelReason").value;data.refundAmount=Number($("refundAmount").value||0);data.refundStatus=$("refundStatus").value;await updateDoc(doc(db,"orders",orderId),{cancelReason:data.cancelReason,refundAmount:data.refundAmount,refundStatus:data.refundStatus});}
       await setDoc(doc(db,"orderFinance",orderId),{price,advance,updatedAt:serverTimestamp()});
       await setDoc(doc(db,"orderPrivateNotes",orderId),{privateNotes:$("privateNotes").value.trim(),updatedAt:serverTimestamp()});
     }
-    $("orderDialog").close();await refreshData();toast("Order saved successfully.");
+    $("orderDialog").close();await refreshData();if(data.reminderAt&&"Notification" in window&&Notification.permission==="default"){try{await Notification.requestPermission();}catch(e){}}toast("Order saved successfully.");
   }catch(err){$("orderError").textContent="Could not save: "+err.message;}
 });
 async function removeOrder(id){if(!confirm("Delete this order permanently?"))return;try{await deleteDoc(doc(db,"orders",id));await refreshData();toast("Order deleted.");}catch(e){toast(e.message);}}
@@ -150,6 +152,13 @@ $("newOrderBtn").onclick=openNew;$("closeDialog").onclick=()=>$("orderDialog").c
 $("searchBox").addEventListener("input",renderOrders);
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));
-  ["orders","payments","team"].forEach(t=>$(`${t}Panel`).classList.toggle("hidden",t!==b.dataset.tab));
+  activeOrderTab=["orders","pending","fulfilled","cancelled"].includes(b.dataset.tab)?b.dataset.tab:"orders";
+  const ordersTab=["orders","pending","fulfilled","cancelled"].includes(b.dataset.tab);
+  $("ordersPanel").classList.toggle("hidden",!ordersTab); $("paymentsPanel").classList.toggle("hidden",b.dataset.tab!=="payments"); $("teamPanel").classList.toggle("hidden",b.dataset.tab!=="team");
+  if(ordersTab)renderOrders();
 }));
-if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+function checkReminders(){if(!currentUser||!allOrders.length||!("Notification" in window)||Notification.permission!=="granted")return;const now=Date.now();allOrders.filter(o=>o.status!=="Delivered"&&o.status!=="Cancelled"&&o.reminderAt&&!o.reminderSentAt&&new Date(o.reminderAt).getTime()<=now).forEach(async o=>{new Notification("Cake order reminder",{body:`${o.customer}: ${o.description||"Pending order"}`});try{await updateDoc(doc(db,"orders",o.id),{reminderSentAt:new Date().toISOString()});}catch(e){console.warn(e);}});}
+if("Notification" in window && Notification.permission==="default") { /* permission is requested when a reminder is first saved */ }
+if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+
+setInterval(checkReminders,30000);
