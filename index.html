@@ -68,7 +68,9 @@
           <label>To date<input id="reportTo" type="date"></label>
           <button class="primary" id="runReportBtn" type="button">Generate report</button>
         </div>
+        <p id="reportMessage" class="hint" aria-live="polite">Choose a status and date range, then select Generate report.</p>
         <div id="reportSummary"></div>
+        <section class="chart-panel"><h3>Monthly order value</h3><div id="reportChart" class="report-chart" aria-label="Monthly order value chart"></div></section>
         <div class="report-table-wrap"><table class="report-table"><thead><tr><th>Month</th><th>Orders</th><th>Order value</th><th>Advance</th><th>Balance</th></tr></thead><tbody id="monthlyReportRows"></tbody></table></div>
         <p class="hint">Reports are grouped by order creation date. Cancelled orders are shown in the order count but excluded from sales totals.</p>
       </section>
