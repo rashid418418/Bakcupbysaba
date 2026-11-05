@@ -26,25 +26,21 @@
       <p id="authMessage" class="message"></p>
     </section>
   </div>
-
   <div id="appView" class="hidden">
     <header class="topbar">
       <div class="brand"><span>🍰</span><div><strong>My Cake Manager</strong><small>Bakery dashboard</small></div></div>
       <div class="top-actions"><span id="userLabel" class="user-label"></span><button id="logoutBtn" class="ghost">Sign out</button></div>
     </header>
-
     <main class="shell">
       <section class="welcome-row">
-        <div><p class="eyebrow">YOUR BAKERY AT A GLANCE</p><h1>Good day! <span id="helloName"></span></h1><p class="muted">Keep every cake order on track.</p></div>
+        <div><p class="eyebrow">YOUR BAKERY AT A GLANCE</p><h1>Welcome <span id="helloName"></span></h1><p class="muted">Keep every cake order on track.</p></div>
         <button id="newOrderBtn" class="primary">＋ New order</button>
       </section>
-
       <section class="stats">
         <article class="stat"><span>Active orders</span><strong id="activeCount">0</strong></article>
         <article class="stat"><span>To collect</span><strong id="dueAmount">Rs. 0</strong></article>
         <article class="stat"><span>Ready for delivery</span><strong id="readyCount">0</strong></article>
       </section>
-
       <nav class="tabs">
         <button class="tab active" data-tab="orders">All Orders</button>
         <button class="tab" data-tab="pending">Pending</button>
@@ -54,12 +50,10 @@
         <button class="tab" data-tab="payments" id="paymentsTab">Payments</button>
         <button class="tab" data-tab="team" id="teamTab">Staff</button>
       </nav>
-
       <section id="ordersPanel" class="panel">
         <div class="panel-head"><div><h2>Orders</h2><p class="muted">Search and update your cake orders.</p></div><input id="searchBox" class="search" placeholder="Search customer or phone"></div>
         <div id="ordersList" class="orders-list"><div class="empty">Your orders will appear here.</div></div>
       </section>
-
       <section id="reportsPanel" class="panel hidden">
         <div class="panel-head"><div><h2>Order reports</h2><p class="muted">Monthly performance and date-range reports.</p></div></div>
         <div class="report-filters">
@@ -72,12 +66,10 @@
         <div class="report-table-wrap"><table class="report-table"><thead><tr><th>Month</th><th>Orders</th><th>Order value</th><th>Advance</th><th>Balance</th></tr></thead><tbody id="monthlyReportRows"></tbody></table></div>
         <p class="hint">Reports are grouped by order creation date. Cancelled orders are shown in the order count but excluded from sales totals.</p>
       </section>
-
       <section id="paymentsPanel" class="panel hidden">
         <div class="panel-head"><div><h2>Payment summary</h2><p class="muted">Owner-only financial information.</p></div></div>
         <div id="paymentSummary"></div>
       </section>
-
       <section id="teamPanel" class="panel hidden">
         <div class="panel-head"><div><h2>Staff accounts</h2><p class="muted">Staff must first create an account from the sign-in screen.</p></div></div>
         <div id="teamList"></div>
@@ -85,7 +77,6 @@
       </section>
     </main>
   </div>
-
   <dialog id="orderDialog">
     <form id="orderForm" method="dialog" class="dialog-form">
       <div class="dialog-head"><div><p class="eyebrow">ORDER DETAILS</p><h2 id="dialogTitle">New cake order</h2></div><button type="button" class="close" id="closeDialog">×</button></div>
@@ -112,7 +103,6 @@
       <div class="dialog-actions"><button type="button" class="secondary" id="cancelOrder">Cancel</button><button type="submit" class="primary">Save order</button></div>
     </form>
   </dialog>
-
   <div id="toast" class="toast" role="status"></div>
   <script type="module" src="./app.js"></script>
 </body>
