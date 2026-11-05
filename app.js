@@ -19,7 +19,7 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 const $ = id => document.getElementById(id);
-let currentUser = null, currentProfile = null, allOrders = [], allUsers = [], activeOrderTab = "orders", reminderTimer = null;
+let currentUser = null, currentProfile = null, allOrders = [], allUsers = [], activeOrderTab = "orders", reminderTimer = null, currentReportRows = [];
 
 const money = n => "Rs. " + Number(n || 0).toLocaleString("en-PK");
 const isOwner = () => currentProfile?.role === "owner";
@@ -105,15 +105,9 @@ function orderCreatedDate(o){
   if(typeof v==="string"||typeof v==="number") return new Date(v);
   return null;
 }
-function renderReports(showMessage=false){
+function renderReports(){
   if(!isOwner()) return;
   const status=$("reportStatus").value||"all", from=$("reportFrom").value, to=$("reportTo").value;
-  const message=$("reportMessage");
-  if(from && to && from>to){
-    message.textContent="Please select a From date that is on or before the To date.";
-    message.classList.add("error-text");
-    return;
-  }
   const start=from?new Date(from+"T00:00:00"):null, end=to?new Date(to+"T23:59:59.999"):null;
   const filtered=allOrders.filter(o=>{
     const d=orderCreatedDate(o); if(!d||Number.isNaN(d.getTime())) return false;
@@ -123,20 +117,31 @@ function renderReports(showMessage=false){
     if(status==="cancelled") return o.status==="Cancelled";
     return true;
   });
+  currentReportRows = filtered.slice();
+  $("reportMessage").textContent = `Report generated: ${filtered.length} order(s) found.`;
   const sales=filtered.filter(o=>o.status!=="Cancelled");
   const total=sales.reduce((n,o)=>n+Number(o.price||0),0), paid=sales.reduce((n,o)=>n+Number(o.advance||0),0);
   $("reportSummary").innerHTML=`<div class="report-summary"><article class="stat"><span>Orders</span><strong>${filtered.length}</strong></article><article class="stat"><span>Order value</span><strong>${money(total)}</strong></article><article class="stat"><span>Advance received</span><strong>${money(paid)}</strong></article><article class="stat"><span>Balance</span><strong>${money(Math.max(0,total-paid))}</strong></article></div>`;
   const months={}; filtered.forEach(o=>{const d=orderCreatedDate(o);const key=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");(months[key]??=[]).push(o);});
-  const keys=Object.keys(months).sort();
-  const monthData=keys.map(k=>{const rows=months[k], valid=rows.filter(o=>o.status!=="Cancelled"), value=valid.reduce((n,o)=>n+Number(o.price||0),0), advance=valid.reduce((n,o)=>n+Number(o.advance||0),0);const [y,m]=k.split("-").map(Number);return {key:k,label:new Date(y,m-1,1).toLocaleDateString("en-PK",{month:"short",year:"numeric"}),count:rows.length,value,advance,balance:Math.max(0,value-advance)};});
-  $("monthlyReportRows").innerHTML=monthData.length?monthData.slice().reverse().map(m=>`<tr><td>${m.label}</td><td>${m.count}</td><td>${money(m.value)}</td><td>${money(m.advance)}</td><td>${money(m.balance)}</td></tr>`).join(""):'<tr><td colspan="5">No orders found for this report period.</td></tr>';
-  const max=Math.max(1,...monthData.map(m=>m.value));
-  $("reportChart").innerHTML=monthData.length?monthData.map(m=>`<div class="chart-column" title="${m.label}: ${money(m.value)}"><div class="chart-value">${money(m.value)}</div><div class="chart-bar-track"><div class="chart-bar" style="height:${Math.max(3,m.value/max*100)}%"></div></div><div class="chart-label">${m.label}</div></div>`).join(""):'<p class="muted">No monthly sales data for this selection.</p>';
-  message.classList.remove("error-text");
-  message.textContent=showMessage?`Report generated: ${filtered.length} order(s) found${from||to?` for ${from||"the beginning"} to ${to||"today"}`:" across all dates"}.`:"Choose a status and date range, then select Generate report.";
+  const keys=Object.keys(months).sort().reverse();
+  $("monthlyReportRows").innerHTML=keys.length?keys.map(k=>{const rows=months[k], valid=rows.filter(o=>o.status!=="Cancelled"), value=valid.reduce((n,o)=>n+Number(o.price||0),0), advance=valid.reduce((n,o)=>n+Number(o.advance||0),0);const [y,m]=k.split("-").map(Number);return `<tr><td>${new Date(y,m-1,1).toLocaleDateString("en-PK",{month:"long",year:"numeric"})}</td><td>${rows.length}</td><td>${money(value)}</td><td>${money(advance)}</td><td>${money(Math.max(0,value-advance))}</td></tr>`;}).join(""):'<tr><td colspan="5">No orders found for this report period.</td></tr>';
 }
-$("runReportBtn").addEventListener("click",()=>renderReports(true));
-$("reportStatus").addEventListener("change",()=>renderReports(false));
+$("runReportBtn").addEventListener("click",renderReports);
+$("reportStatus").addEventListener("change",renderReports);
+
+$("exportExcelBtn").addEventListener("click",()=>{
+  if(!currentReportRows.length){toast("No report data to export.");return;}
+  const cols=["Customer","Phone","Order Date","Delivery","Status","Description","Weight","Flavours","Order Value","Advance","Balance"];
+  const rows=currentReportRows.map(o=>{const d=orderCreatedDate(o),p=Number(o.price||0),a=Number(o.advance||0);return [o.customer,o.phone,d?d.toLocaleDateString("en-PK"):"",o.deliveryText,o.status,o.description,o.weight,o.flavours,p,a,Math.max(0,p-a)];});
+  const csv=[cols,...rows].map(row=>row.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"})),a=document.createElement("a");a.href=url;a.download="My-Cake-Manager-Report.csv";a.click();URL.revokeObjectURL(url);
+});
+$("exportPdfBtn").addEventListener("click",()=>{
+  if(!currentReportRows.length){toast("No report data to export.");return;}
+  const rows=currentReportRows.map(o=>{const d=orderCreatedDate(o),p=Number(o.price||0),a=Number(o.advance||0);return `<tr><td>${esc(o.customer||"")}</td><td>${esc(o.phone||"")}</td><td>${d?d.toLocaleDateString("en-PK"):""}</td><td>${esc(o.status||"Pending")}</td><td>${money(p)}</td><td>${money(a)}</td><td>${money(Math.max(0,p-a))}</td></tr>`;}).join("");
+  const w=window.open("","_blank");if(!w){toast("Allow pop-ups to create PDF.");return;}
+  w.document.write(`<!doctype html><html><head><title>My Cake Manager Report</title><style>body{font-family:Arial;color:#38251f;padding:28px}h1{color:#784535}table{width:100%;border-collapse:collapse;margin-top:20px}th{background:#f4e7df}th,td{padding:9px;border:1px solid #eadbd2;text-align:left;font-size:12px}</style></head><body><h1>My Cake Manager</h1><h2>Order Report</h2><p>From: ${esc($("reportFrom").value||"All dates")} To: ${esc($("reportTo").value||"All dates")} · ${esc($("reportStatus").selectedOptions[0].text)}</p><table><thead><tr><th>Customer</th><th>Phone</th><th>Order date</th><th>Status</th><th>Value</th><th>Advance</th><th>Balance</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print();<\/script></body></html>`);w.document.close();
+});
 
 function renderPayments(){
   const rows=allOrders.filter(o=>o.status!=="Cancelled");
