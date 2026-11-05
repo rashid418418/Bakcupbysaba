@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#7b4537">
+  <meta name="description" content="My Cake Manager bakery order and payment manager">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <title>My Cake Manager</title>
+</head>
+<body>
+  <div id="authView" class="auth-wrap">
+    <section class="auth-card">
+      <div class="brand-mark">🍰</div>
+      <p class="eyebrow">BAKERY ORDER MANAGER</p>
+      <h1>My Cake Manager</h1>
+      <p class="muted">Your orders, payments and delivery schedule in one place.</p>
+      <form id="authForm">
+        <label>Email address<input id="email" type="email" autocomplete="username" required></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" minlength="6" required></label>
+        <button class="primary" id="signInBtn">Sign in</button>
+        <button class="secondary" type="button" id="registerBtn">Create owner account</button>
+      </form>
+      <p class="tiny muted">Use your bakery account. Keep your password private.</p>
+      <p id="authMessage" class="message"></p>
+    </section>
+  </div>
+
+  <div id="appView" class="hidden">
+    <header class="topbar">
+      <div class="brand"><span>🍰</span><div><strong>My Cake Manager</strong><small>Bakery dashboard</small></div></div>
+      <div class="top-actions"><span id="userLabel" class="user-label"></span><button id="logoutBtn" class="ghost">Sign out</button></div>
+    </header>
+
+    <main class="shell">
+      <section class="welcome-row">
+        <div><p class="eyebrow">YOUR BAKERY AT A GLANCE</p><h1>Good day! <span id="helloName"></span></h1><p class="muted">Keep every cake order on track.</p></div>
+        <button id="newOrderBtn" class="primary">＋ New order</button>
+      </section>
+
+      <section class="stats">
+        <article class="stat"><span>Active orders</span><strong id="activeCount">0</strong></article>
+        <article class="stat"><span>To collect</span><strong id="dueAmount">Rs. 0</strong></article>
+        <article class="stat"><span>Ready for delivery</span><strong id="readyCount">0</strong></article>
+      </section>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="orders">Orders</button>
+        <button class="tab" data-tab="payments" id="paymentsTab">Payments</button>
+        <button class="tab" data-tab="team" id="teamTab">Staff</button>
+      </nav>
+
+      <section id="ordersPanel" class="panel">
+        <div class="panel-head"><div><h2>Orders</h2><p class="muted">Search and update your cake orders.</p></div><input id="searchBox" class="search" placeholder="Search customer or phone"></div>
+        <div id="ordersList" class="orders-list"><div class="empty">Your orders will appear here.</div></div>
+      </section>
+
+      <section id="paymentsPanel" class="panel hidden">
+        <div class="panel-head"><div><h2>Payment summary</h2><p class="muted">Owner-only financial information.</p></div></div>
+        <div id="paymentSummary"></div>
+      </section>
+
+      <section id="teamPanel" class="panel hidden">
+        <div class="panel-head"><div><h2>Staff accounts</h2><p class="muted">Staff must first create an account from the sign-in screen.</p></div></div>
+        <div id="teamList"></div>
+        <p class="hint">New staff accounts are created using the sign-in page. They receive staff access by default. You can activate or deactivate them here.</p>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="orderDialog">
+    <form id="orderForm" method="dialog" class="dialog-form">
+      <div class="dialog-head"><div><p class="eyebrow">ORDER DETAILS</p><h2 id="dialogTitle">New cake order</h2></div><button type="button" class="close" id="closeDialog">×</button></div>
+      <input type="hidden" id="orderId">
+      <div class="form-grid">
+        <label>Customer name *<input id="customer" required placeholder="Customer name"></label>
+        <label>Phone number<input id="phone" placeholder="03xx xxxxxxx"></label>
+        <label class="wide">Cake description / design *<input id="description" required placeholder="e.g. 2-pound birthday cake"></label>
+        <label>Weight<input id="weight" placeholder="e.g. 2 pounds"></label>
+        <label>Flavour(s)<input id="flavours" placeholder="Chocolate, vanilla, red velvet"></label>
+        <label>Delivery date & time *<input id="delivery" type="datetime-local" required></label>
+        <label>Order type<select id="orderType"><option>Regular</option><option>Bento</option><option>Birthday</option><option>Wedding</option><option>Custom</option></select></label>
+        <label>Total price (Rs.) *<input id="price" type="number" min="0" step="1" required></label>
+        <label>Advance received (Rs.)<input id="advance" type="number" min="0" step="1" value="0"></label>
+        <label>Status<select id="status"><option>Pending</option><option>In Progress</option><option>Ready</option><option>Delivered</option><option>Cancelled</option></select></label>
+        <label class="wide">Customer notes<textarea id="customerNotes" rows="2" placeholder="Cake message, colour, design instructions"></textarea></label>
+        <label class="wide owner-only">Private notes (owner only)<textarea id="privateNotes" rows="2" placeholder="Internal bakery notes"></textarea></label>
+      </div>
+      <p id="orderError" class="message"></p>
+      <div class="dialog-actions"><button type="button" class="secondary" id="cancelOrder">Cancel</button><button type="submit" class="primary">Save order</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

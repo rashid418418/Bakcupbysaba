@@ -1,0 +1,10 @@
+{
+  "name": "My Cake Manager",
+  "short_name": "Cake Manager",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf7f2",
+  "theme_color": "#7b4537",
+  "description": "Bakery orders and payment management",
+  "icons": []
+}
