@@ -53,7 +53,7 @@ onAuthStateChanged(auth, async user => {
     } else currentProfile=snap.data();
     if(currentProfile.active!==true){ await signOut(auth); showAuthMessage("This account is inactive. Please contact the owner."); return; }
     $("authView").classList.add("hidden"); $("appView").classList.remove("hidden");
-    $("userLabel").textContent=user.email; $("helloName").textContent=user.email.split("Bakecupbysaba")[0];
+    $("userLabel").textContent=user.email; $("helloName").textContent="Bakecupbysaba";
     document.querySelectorAll(".owner-only").forEach(el=>el.classList.toggle("hidden",!isOwner()));
     $("paymentsTab").classList.toggle("hidden",!isOwner());
     $("teamTab").classList.toggle("hidden",!isOwner());
