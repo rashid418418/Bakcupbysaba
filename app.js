@@ -14,6 +14,8 @@ const firebaseConfig = {
 };
 // 2) Replace with the Gmail address that owns this bakery project.
 const OWNER_EMAIL = "rashid418418@gmail.com";
+const PHOTO_API_URL = "https://script.google.com/macros/s/AKfycbwkWbBn3pCHs_AKGFGvTLNPTCEywlSjD02f5g5Cy-Zs1L-xgBMZg-7Z7KrTpLUsewUd/exec";
+let selectedCakePhoto = null;
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -51,7 +53,7 @@ onAuthStateChanged(auth, async user => {
     } else currentProfile=snap.data();
     if(currentProfile.active!==true){ await signOut(auth); showAuthMessage("This account is inactive. Please contact the owner."); return; }
     $("authView").classList.add("hidden"); $("appView").classList.remove("hidden");
-    $("userLabel").textContent=user.email; $("helloName").textContent="Bakecupbysaba";
+    $("userLabel").textContent=user.email; $("helloName").textContent=user.email.split("Bakecupbysaba")[0];
     document.querySelectorAll(".owner-only").forEach(el=>el.classList.toggle("hidden",!isOwner()));
     $("paymentsTab").classList.toggle("hidden",!isOwner());
     $("teamTab").classList.toggle("hidden",!isOwner());
@@ -81,6 +83,38 @@ function render(){
   renderOrders();
   if(isOwner()){ renderPayments(); renderTeam(); renderReports(); }
 }
+async function photoRequest(payload){
+  const token=await currentUser.getIdToken();
+  const response=await fetch(PHOTO_API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...payload,token})});
+  if(!response.ok) throw new Error("Photo service returned HTTP "+response.status);
+  const result=await response.json();
+  if(!result.success) throw new Error(result.error||"Photo request failed.");
+  return result;
+}
+async function loadOrderPhotoButtons(){
+  for(const order of allOrders){
+    const target=document.querySelector(`[data-photos-for="${CSS.escape(order.id)}"]`);
+    if(!target) continue;
+    try{
+      const result=await photoRequest({action:"list",orderId:order.id});
+      if(!result.photos.length){target.textContent="No cake photo";continue;}
+      target.innerHTML=result.photos.map((p,i)=>`<button type="button" class="small-btn" data-view-photo="${esc(order.id)}" data-file-id="${esc(p.fileId)}">View photo ${i+1}</button>`).join(" ");
+      target.querySelectorAll("[data-view-photo]").forEach(btn=>btn.addEventListener("click",async()=>{
+        btn.disabled=true;btn.textContent="Loading photo…";
+        try{const image=await photoRequest({action:"get",fileId:btn.dataset.fileId,orderId:order.id});showPhotoPreview(image);}
+        catch(err){toast("Could not load photo: "+err.message);}
+        finally{btn.disabled=false;btn.textContent="View photo "+(Array.from(target.querySelectorAll('[data-view-photo]')).indexOf(btn)+1);}
+      }));
+    }catch(err){target.textContent="Photo list unavailable";console.warn(err);}
+  }
+}
+function showPhotoPreview(photo){
+  let dialog=document.getElementById("photoPreviewDialog");
+  if(!dialog){dialog=document.createElement("dialog");dialog.id="photoPreviewDialog";dialog.innerHTML='<div class="photo-preview-wrap"><button type="button" class="close" id="closePhotoPreview">×</button><img id="photoPreviewImage" alt="Cake order photo"><p id="photoPreviewName"></p></div>';document.body.appendChild(dialog);dialog.querySelector("#closePhotoPreview").onclick=()=>dialog.close();}
+  dialog.querySelector("#photoPreviewImage").src=`data:${photo.mimeType};base64,${photo.image}`;
+  dialog.querySelector("#photoPreviewName").textContent=photo.fileName||"Cake photo";
+  dialog.showModal();
+}
 function renderOrders(){
   const term=$("searchBox").value.toLowerCase();
   const list=allOrders.filter(o=>{const match=(o.customer||"").toLowerCase().includes(term)||(o.phone||"").includes(term); const tabMatch=activeOrderTab==="pending"?!["Delivered","Cancelled"].includes(o.status):activeOrderTab==="fulfilled"?o.status==="Delivered":activeOrderTab==="cancelled"?o.status==="Cancelled":true; return match&&tabMatch;});
@@ -91,9 +125,10 @@ function renderOrders(){
       <p>${esc(o.description)} · ${esc(o.weight||"Weight not set")}</p><p>${esc(o.phone||"No phone")} · ${esc(o.deliveryText||"")}</p>${o.reminderAt?`<p>Reminder: ${esc(new Date(o.reminderAt).toLocaleString())}</p>`:""}${o.status==="Cancelled"?`<p>Reason: ${esc(o.cancelReason||"Not recorded")} · Refund: ${money(o.refundAmount)} (${esc(o.refundStatus||"Not set")})</p>`:""}</div>
       <div><p>Flavour(s)</p><strong>${esc(o.flavours||"Not specified")}</strong></div>
       ${isOwner()?`<div class="money">${money(o.price)}<p>Advance ${money(o.advance)} · Balance ${money(balance)}</p></div>`:`<div><p>Order type</p><strong>${esc(o.orderType||"Regular")}</strong></div>`}
-      <div class="card-actions"><button class="small-btn" data-edit="${o.id}">Edit</button>${isOwner()?`<button class="small-btn" data-delete="${o.id}">Delete</button>`:""}</div>
+      <div class="card-actions"><button class="small-btn" data-edit="${o.id}">Edit</button>${isOwner()?`<button class="small-btn" data-delete="${o.id}">Delete</button>`:""}</div><div class="order-photos" data-photos-for="${esc(o.id)}">Checking photos…</div>
     </article>`;
   }).join(""):'<div class="empty">No matching orders yet. Add your first cake order.</div>';
+  loadOrderPhotoButtons();
   document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openEdit(b.dataset.edit));
   document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>removeOrder(b.dataset.delete));
 }
@@ -159,11 +194,13 @@ function renderTeam(){
 }
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function openNew(){
+  selectedCakePhoto=null; if($("cakePhoto"))$("cakePhoto").value=""; if($("cakePhotoPreview")){$("cakePhotoPreview").src="";$("cakePhotoPreview").classList.add("hidden");}
   $("orderForm").reset(); $("orderId").value=""; $("advance").value="0"; $("status").value="Pending";
   $("privateNotes").value=""; $("reminderAt").value=""; $("cancelReason").value=""; $("refundAmount").value="0"; $("refundStatus").value="Not applicable"; $("dialogTitle").textContent="New cake order"; $("orderError").textContent="";
   $("orderDialog").showModal();
 }
 function openEdit(id){
+  selectedCakePhoto=null; if($("cakePhoto"))$("cakePhoto").value=""; if($("cakePhotoPreview")){$("cakePhotoPreview").src="";$("cakePhotoPreview").classList.add("hidden");}
   const o=allOrders.find(x=>x.id===id); if(!o)return;
   $("orderId").value=id; $("customer").value=o.customer||""; $("phone").value=o.phone||"";
   $("description").value=o.description||""; $("weight").value=o.weight||""; $("flavours").value=o.flavours||"";
@@ -173,6 +210,13 @@ function openEdit(id){
   $("reminderAt").value=o.reminderAt||""; $("cancelReason").value=isOwner()?(o.cancelReason||""):""; $("refundAmount").value=isOwner()?(o.refundAmount||0):0; $("refundStatus").value=isOwner()?(o.refundStatus||"Not applicable"):"Not applicable";
   $("dialogTitle").textContent="Edit cake order"; $("orderError").textContent=""; $("orderDialog").showModal();
 }
+$("cakePhoto")?.addEventListener("change",async e=>{
+  const file=e.target.files?.[0];selectedCakePhoto=null;
+  if(!file){$("cakePhotoPreview").classList.add("hidden");return;}
+  if(!file.type.startsWith("image/")){toast("Please select an image file.");e.target.value="";return;}
+  if(file.size>5*1024*1024){toast("Picture must be 5 MB or smaller.");e.target.value="";return;}
+  const reader=new FileReader();reader.onload=()=>{selectedCakePhoto={fileName:file.name,mimeType:file.type,image:reader.result};$("cakePhotoPreview").src=reader.result;$("cakePhotoPreview").classList.remove("hidden");};reader.onerror=()=>toast("Could not read the selected picture.");reader.readAsDataURL(file);
+});
 $("orderForm").addEventListener("submit",async e=>{
   e.preventDefault(); $("orderError").textContent="";
   const price=Number($("price").value||0), advance=Number($("advance").value||0);
@@ -191,8 +235,9 @@ $("orderForm").addEventListener("submit",async e=>{
       await setDoc(doc(db,"orderFinance",orderId),{price,advance,updatedAt:serverTimestamp()});
       await setDoc(doc(db,"orderPrivateNotes",orderId),{privateNotes:$("privateNotes").value.trim(),updatedAt:serverTimestamp()});
     }
+    if(selectedCakePhoto){await photoRequest({action:"upload",orderId:orderId,fileName:selectedCakePhoto.fileName,mimeType:selectedCakePhoto.mimeType,image:selectedCakePhoto.image});selectedCakePhoto=null;}
     $("orderDialog").close();await refreshData();if(data.reminderAt&&"Notification" in window&&Notification.permission==="default"){try{await Notification.requestPermission();}catch(e){}}toast("Order saved successfully.");
-  }catch(err){$("orderError").textContent="Could not save: "+err.message;}
+  }catch(err){$("orderError").textContent="Could not complete: "+err.message+". If the order was saved, edit it and upload the picture again.";}
 });
 async function removeOrder(id){if(!confirm("Delete this order permanently?"))return;try{await deleteDoc(doc(db,"orders",id));await refreshData();toast("Order deleted.");}catch(e){toast(e.message);}}
 $("newOrderBtn").onclick=openNew;$("closeDialog").onclick=()=>$("orderDialog").close();$("cancelOrder").onclick=()=>$("orderDialog").close();

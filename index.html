@@ -8,6 +8,16 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
   <title>My Cake Manager</title>
+  <style>
+    .order-photos{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:13px;color:#8a6b60}
+    .cake-photo-preview{display:block;max-width:220px;max-height:180px;object-fit:contain;border:1px solid #eadbd2;border-radius:12px;margin-top:8px}
+    .photo-preview-wrap{position:relative;padding:24px;max-width:min(90vw,900px);text-align:center}
+    #photoPreviewImage{max-width:100%;max-height:75vh;object-fit:contain;border-radius:10px}
+    #photoPreviewName{color:#765044;font-size:13px}
+    #closePhotoPreview{position:absolute;right:8px;top:4px}
+    #photoPreviewDialog{border:1px solid #eadbd2;border-radius:16px;max-width:95vw}
+    #photoPreviewDialog::backdrop{background:rgba(35,20,15,.65)}
+  </style>
 </head>
 <body>
   <div id="authView" class="auth-wrap">
@@ -97,6 +107,8 @@
         <label class="owner-only">Refund amount (Rs.)<input id="refundAmount" type="number" min="0" step="1" value="0"></label>
         <label class="owner-only">Refund status<select id="refundStatus"><option>Not applicable</option><option>Pending</option><option>Refunded</option><option>Non-refundable</option></select></label>
         <label class="wide">Customer notes<textarea id="customerNotes" rows="2" placeholder="Cake message, colour, design instructions"></textarea></label>
+        <label class="wide">Cake picture (JPG, PNG or WebP; max 5 MB)<input id="cakePhoto" type="file" accept="image/*"></label>
+        <div class="wide"><img id="cakePhotoPreview" class="cake-photo-preview hidden" alt="Selected cake preview"></div>
         <label class="wide owner-only">Private notes (owner only)<textarea id="privateNotes" rows="2" placeholder="Internal bakery notes"></textarea></label>
       </div>
       <p id="orderError" class="message"></p>
